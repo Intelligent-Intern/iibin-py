@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "iibin"
+version = "2.0.0a1"
+description = "Schema-defined IIBIN binary messages with a native C codec"
+requires-python = ">=3.10"
+license = "MIT"
+[tool.setuptools.packages.find]
+where = ["src"]
