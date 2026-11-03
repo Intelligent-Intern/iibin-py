@@ -9,3 +9,7 @@ requires-python = ">=3.10"
 license = "MIT"
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.urls]
+Repository = "https://github.com/Intelligent-Intern/iibin-py"
+Issues = "https://github.com/Intelligent-Intern/iibin-py/issues"
