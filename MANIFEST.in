@@ -1,1 +1,3 @@
 include native/python.c native/core/wire.c native/core/wire.h
+include RELEASING.md
+include MIGRATION.md CHANGELOG.md

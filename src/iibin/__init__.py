@@ -15,7 +15,7 @@ def _validate(schema, depth=0):
         ids.add(i)
         if t == 'message': f['schema'] = _validate(f.get('schema'), depth+1)
         result[name] = f
-    return result
+    return dict(sorted(result.items(), key=lambda item: item[1]['id']))
 
 class Schema:
     def __init__(self, fields):
