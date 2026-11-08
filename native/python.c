@@ -58,7 +58,11 @@ static PyObject *decode_value(PyObject *f,const unsigned char *data,size_t n,siz
     if(!strcmp(t,"float")){uint32_t v=(uint32_t)u;float x;memcpy(&x,&v,4);if(!isfinite(x)){error("Non-finite float");return NULL;}return PyFloat_FromDouble(x);}
     if(!strcmp(t,"double")){double x;memcpy(&x,&u,8);if(!isfinite(x)){error("Non-finite double");return NULL;}return PyFloat_FromDouble(x);}
     if(!strncmp(t,"sint",4)){if(strstr(t,"32")&&u>UINT32_MAX){error("sint32 out of range");return NULL;}return PyLong_FromLongLong((int64_t)((u>>1)^(uint64_t)-(int64_t)(u&1)));}
-    if(!strcmp(t,"int32")||!strcmp(t,"sfixed32"))return PyLong_FromLong((int32_t)u);
+    if(!strcmp(t,"int32")){
+        if(u>INT32_MAX && u<(uint64_t)(int64_t)INT32_MIN){error("int32 out of range");return NULL;}
+        return PyLong_FromLong((int32_t)u);
+    }
+    if(!strcmp(t,"sfixed32"))return PyLong_FromLong((int32_t)u);
     if(!strcmp(t,"uint32")||!strcmp(t,"fixed32")){if(u>UINT32_MAX){error("uint32 out of range");return NULL;}return PyLong_FromUnsignedLong((uint32_t)u);}
     if(!strcmp(t,"int64")||!strcmp(t,"sfixed64"))return PyLong_FromLongLong((int64_t)u);
     return PyLong_FromUnsignedLongLong(u);
@@ -71,9 +75,11 @@ static PyObject *decode_message(PyObject *schema,const unsigned char *d,size_t n
         while(PyDict_Next(schema,&it,&key,&field)){unsigned long id=PyLong_AsUnsignedLong(PyDict_GetItemString(field,"id"));if(id==(tag>>3)){found=field;name=key;break;}}
         if(!found){if(!skip(d,n,&p,w)){error("Invalid unknown field");goto fail;}continue;}
         const char *t=type_of(found);if(!t)goto fail;int expected=wire_type(t);
+        int packed=w==2&&expected!=2&&repeated(found);size_t packed_end=0;
+        if(packed){uint64_t len;if(!iibin_read_varint(d,n,&p,&len)||len>n-p){error("Truncated packed field");goto fail;}if(!len)continue;packed_end=p+(size_t)len;}
         PyObject *list=NULL;
         if(repeated(found)){list=PyDict_GetItemWithError(result,name);if(!list){list=PyList_New(0);if(!list)goto fail;int rc=PyDict_SetItem(result,name,list);Py_DECREF(list);if(rc<0)goto fail;list=PyDict_GetItem(result,name);}}
-        if(w==2&&expected!=2&&list){uint64_t len;if(!iibin_read_varint(d,n,&p,&len)||len>n-p){error("Truncated packed field");goto fail;}size_t end=p+(size_t)len;while(p<end){PyObject *v=decode_value(found,d,end,&p,depth);if(!v)goto fail;int rc=PyList_Append(list,v);Py_DECREF(v);if(rc<0)goto fail;}continue;}
+        if(packed){while(p<packed_end){PyObject *v=decode_value(found,d,packed_end,&p,depth);if(!v)goto fail;int rc=PyList_Append(list,v);Py_DECREF(v);if(rc<0)goto fail;}continue;}
         if(w!=expected){error("Field wire type mismatch");goto fail;}
         PyObject *v=decode_value(found,d,n,&p,depth);if(!v)goto fail;int rc=list?PyList_Append(list,v):PyDict_SetItem(result,name,v);Py_DECREF(v);if(rc<0)goto fail;
     }return result;
